@@ -10,12 +10,10 @@
         .brawler-img { font-size: 50px; margin: 10px; }
         input { width: 60px; padding: 10px; font-size: 20px; border-radius: 10px; border: none; text-align: center; }
         button { background: #ff4b2b; color: white; border: none; padding: 10px 20px; font-size: 18px; border-radius: 10px; cursor: pointer; margin-top: 10px; }
-        .mode-btn { margin: 0 5px; opacity: 0.6; transition: 0.3s; }
         button:disabled {
             background-color: #95a5a6;
             cursor: not-allowed;
         }
-        .mode-btn.active { opacity: 1; transform: scale(1.1); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         #feedback { margin-top: 15px; font-weight: bold; min-height: 50px; }
         #streak-container {
             font-size: 22px;
@@ -53,22 +51,74 @@
         .theme-demons #streak-container {
             color: #f0f; /* Fuchsia */
         }
+
+        /* Modal Styles */
+        #settings-btn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 24px;
+            z-index: 100;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            margin: 0;
+        }
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.7); 
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #333;
+            border: 2px solid #fdbb2d;
+            border-radius: 15px;
+            padding: 20px;
+            width: 90%;
+            max-width: 350px;
+            color: white;
+            text-align: right; /* For Hebrew labels */
+            position: relative;
+            box-shadow: 0 0 20px rgba(255, 204, 0, 0.3);
+        }
+        .setting-group { margin-bottom: 15px; }
+        .setting-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #fdbb2d; }
+        .setting-group select { width: 100%; padding: 8px; border-radius: 5px; background: #555; color: white; border: 1px solid #777; font-size: 16px; }
+
+        #modal-reset-btn {
+            width: 100%;
+            background: #c0392b;
+            margin-top: 10px;
+        }
+        #modal-ok-btn {
+            width: 100%;
+            background: #27ae60; /* Green */
+            margin-top: 20px;
+        }
+        .theme-demons .modal-content {
+            border-color: #ff00ff;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+        .theme-demons .setting-group label {
+            color: #ff00ff;
+        }
     </style>
 </head>
 <body>
-
-    <div style="margin-bottom: 10px;">
-        <button id="btn-brawlers" class="mode-btn active" onclick="setTheme('brawlers')" style="background: #fdbb2d; color: #333;">Brawl Stars</button>
-        <button id="btn-demons" class="mode-btn" onclick="setTheme('demons')" style="background: #8e44ad;">K-Pop Demon Hunters</button>
-    </div>
+    <button id="settings-btn">⚙️</button>
 
     <h1 id="main-title">🌵 BRAWL MULTIPLY 🌵</h1>
     <p id="subtitle">פתור תרגילים וזכה בבראולרים נדירים!</p>
-
-    <div style="margin-bottom: 20px;">
-        <button id="btn-multiply" class="mode-btn active" onclick="setMode('multiply')" style="background: #2ecc71;">כפל</button>
-        <button id="btn-chain" class="mode-btn" onclick="setMode('chain')" style="background: #3498db;">שרשרת (+/-)</button>
-    </div>
 
     <div id="streak-container">
         🔥 רצף: <span id="streak-counter">0</span>
@@ -82,8 +132,35 @@
         <div id="feedback"></div>
     </div>
 
-    <h3 id="collection-title">האוסף שלי:</h3>
+    <h3 id="collection-title" style="margin-top: 20px;">האוסף שלי:</h3>
     <div class="inventory" id="inventory"></div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h2>הגדרות</h2>
+            
+            <div class="setting-group">
+                <label for="theme-select">ערכת נושא:</label>
+                <select id="theme-select">
+                    <option value="brawlers">Brawl Stars</option>
+                    <option value="demons">K-Pop Demon Hunters</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="mode-select">סוג תרגיל:</label>
+                <select id="mode-select">
+                    <option value="multiply">כפל</option>
+                    <option value="chain">שרשרת (+/-)</option>
+                </select>
+            </div>
+            
+            <button id="modal-reset-btn" onclick="resetCollection()">איפוס אוסף נוכחי 🔄</button>
+            
+            <button id="modal-ok-btn">אישור</button>
+        </div>
+    </div>
 
     <script>
         const brawlers = [
@@ -105,18 +182,69 @@
         let currentTheme = 'brawlers';
         let correctAnswer;
         let streakCounter = 0; // Counter for correct answer streak
+        let inventories = { brawlers: [], demons: [] };
 
-        function setTheme(theme) {
-            currentTheme = theme;
-            document.getElementById('btn-brawlers').classList.toggle('active', theme === 'brawlers');
-            document.getElementById('btn-demons').classList.toggle('active', theme === 'demons');
-            
-            // Clear inventory and reset streak
-            document.getElementById('inventory').innerHTML = '';
-            streakCounter = 0;
-            updateStreakDisplay();
+        // Modal elements
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const themeSelect = document.getElementById('theme-select');
+        const modeSelect = document.getElementById('mode-select');
+        const modalOkBtn = document.getElementById('modal-ok-btn');
 
-            if (theme === 'brawlers') {
+        // --- Data Persistence ---
+
+        function loadInventories() {
+            const saved = localStorage.getItem('mathGameInventories');
+            if (saved) {
+                inventories = JSON.parse(saved);
+                // Ensure both keys exist to prevent errors if loading old data
+                if (!inventories.brawlers) inventories.brawlers = [];
+                if (!inventories.demons) inventories.demons = [];
+            }
+        }
+
+        function saveInventories() {
+            localStorage.setItem('mathGameInventories', JSON.stringify(inventories));
+        }
+
+        function displayCurrentInventory() {
+            const inv = document.getElementById('inventory');
+            inv.innerHTML = '';
+            const currentCollection = inventories[currentTheme] || [];
+            currentCollection.forEach(reward => {
+                const item = document.createElement('div');
+                item.className = 'item';
+                item.innerHTML = `${reward.icon}<br>${reward.name}`;
+                inv.appendChild(item);
+            });
+        }
+
+        function resetCollection() {
+            if (confirm('האם לאפס את האוסף הנוכחי? הפעולה בלתי הפיכה.')) {
+                inventories[currentTheme] = [];
+                saveInventories();
+                displayCurrentInventory();
+            }
+        }
+
+        // --- Settings Modal Logic ---
+        function openSettings() {
+            // Sync selects with current state
+            themeSelect.value = currentTheme;
+            modeSelect.value = currentMode;
+            settingsModal.style.display = 'flex';
+        }
+
+        function applyAndCloseSettings() {
+            const newTheme = themeSelect.value;
+            const newMode = modeSelect.value;
+
+            // Update global state
+            currentTheme = newTheme;
+            currentMode = newMode;
+
+            // Update UI based on new state
+            if (currentTheme === 'brawlers') {
                 document.body.classList.remove('theme-demons');
                 document.getElementById('main-title').innerText = '🌵 BRAWL MULTIPLY 🌵';
                 document.getElementById('subtitle').innerText = 'פתור תרגילים וזכה בבראולרים נדירים!';
@@ -127,15 +255,14 @@
                 document.getElementById('subtitle').innerText = 'פתור תרגילים וגייס ציידי שדים אגדיים!';
                 document.getElementById('collection-title').innerText = 'הלהקה שלי:';
             }
-        }
+            displayCurrentInventory();
 
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('btn-multiply').classList.toggle('active', mode === 'multiply');
-            document.getElementById('btn-chain').classList.toggle('active', mode === 'chain');
-            streakCounter = 0; // Reset streak on mode change
-            updateStreakDisplay(); // Update the display
+            // Reset streak and get new question
+            streakCounter = 0;
+            updateStreakDisplay();
             newQuestion();
+
+            settingsModal.style.display = 'none';
         }
 
         function newQuestion() {
@@ -222,12 +349,20 @@
             }
         }
 
-        function addToInventory(brawler) {
-            const inv = document.getElementById('inventory');
-            const item = document.createElement('div');
-            item.className = 'item';
-            item.innerHTML = `${brawler.icon}<br>${brawler.name}`;
-            inv.appendChild(item);
+        function addToInventory(reward) {
+            const currentCollection = inventories[currentTheme];
+            // Only add if not already in collection to avoid duplicates
+            if (!currentCollection.some(item => item.name === reward.name)) {
+                currentCollection.push(reward);
+                saveInventories();
+
+                // Add to the DOM
+                const inv = document.getElementById('inventory');
+                const item = document.createElement('div');
+                item.className = 'item';
+                item.innerHTML = `${reward.icon}<br>${reward.name}`;
+                inv.appendChild(item);
+            }
         }
 
         // Confetti function (adapted from the bowling game)
@@ -248,7 +383,24 @@
                 setTimeout(() => confetti.remove(), parseFloat(confetti.style.animationDuration) * 1000);
             }
         }
-        newQuestion();
+
+        // Initial load
+        function init() {
+            loadInventories();
+            // Set default theme visuals on first load
+            document.body.classList.remove('theme-demons');
+            document.getElementById('main-title').innerText = '🌵 BRAWL MULTIPLY 🌵';
+            document.getElementById('subtitle').innerText = 'פתור תרגילים וזכה בבראולרים נדירים!';
+            document.getElementById('collection-title').innerText = 'האוסף שלי:';
+            displayCurrentInventory();
+            newQuestion();
+        }
+
+        // Event Listeners
+        settingsBtn.addEventListener('click', openSettings);
+        modalOkBtn.addEventListener('click', applyAndCloseSettings);
+
+        init();
     </script>
 </body>
 </html>
