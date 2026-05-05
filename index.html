@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בראול כפל - אליפות הכיתה!</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background: #1a2a6c; color: white; text-align: center; padding: 20px; }
+        .card { background: #fdbb2d; border-radius: 20px; padding: 20px; color: #333; max-width: 400px; margin: auto; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        .brawler-img { font-size: 50px; margin: 10px; }
+        input { width: 60px; padding: 10px; font-size: 20px; border-radius: 10px; border: none; text-align: center; }
+        button { background: #ff4b2b; color: white; border: none; padding: 10px 20px; font-size: 18px; border-radius: 10px; cursor: pointer; margin-top: 10px; }
+        .mode-btn { margin: 0 5px; opacity: 0.6; transition: 0.3s; }
+        .mode-btn.active { opacity: 1; transform: scale(1.1); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        #feedback { margin-top: 15px; font-weight: bold; min-height: 50px; }
+        #streak-container {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ffcc00; /* Gold color */
+            text-shadow: 1px 1px 2px #000;
+            transition: transform 0.2s ease-in-out;
+        }
+        /* Confetti styles */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00; /* Default color, will be randomized */
+            animation: fall linear forwards;
+            z-index: 100;
+            pointer-events: none; /* Allow clicks/touches to pass through */
+        }
+        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+        .inventory { margin-top: 30px; display: flex; flex-wrap: wrap; justify-content: center; }
+        .item { background: rgba(255,255,255,0.2); margin: 5px; padding: 10px; border-radius: 10px; border: 1px solid gold; }
+
+        /* K-Pop Demon Hunter Theme Overrides */
+        body.theme-demons {
+            background: linear-gradient(to bottom, #430d4b, #1e082b);
+        }
+        .theme-demons .card {
+            background: linear-gradient(145deg, #a853b8, #3d1d54);
+            color: white;
+        }
+        .theme-demons .item {
+            border-color: #ff00ff; /* Fuchsia */
+        }
+        .theme-demons #streak-container {
+            color: #f0f; /* Fuchsia */
+        }
+    </style>
+</head>
+<body>
+
+    <div style="margin-bottom: 10px;">
+        <button id="btn-brawlers" class="mode-btn active" onclick="setTheme('brawlers')" style="background: #fdbb2d; color: #333;">Brawl Stars</button>
+        <button id="btn-demons" class="mode-btn" onclick="setTheme('demons')" style="background: #8e44ad;">K-Pop Demon Hunters</button>
+    </div>
+
+    <h1 id="main-title">🌵 BRAWL MULTIPLY 🌵</h1>
+    <p id="subtitle">פתור תרגילים וזכה בבראולרים נדירים!</p>
+
+    <div style="margin-bottom: 20px;">
+        <button id="btn-multiply" class="mode-btn active" onclick="setMode('multiply')" style="background: #2ecc71;">כפל</button>
+        <button id="btn-chain" class="mode-btn" onclick="setMode('chain')" style="background: #3498db;">שרשרת (+/-)</button>
+    </div>
+
+    <div id="streak-container">
+        🔥 רצף: <span id="streak-counter">0</span>
+    </div>
+
+    <div class="card">
+        <h2 id="question" dir="ltr">טוען תרגיל...</h2>
+        <input type="number" id="answer" placeholder="?" onkeypress="if(event.key==='Enter') checkAnswer()">
+        <br>
+        <button onclick="checkAnswer()">פתח תיבה! 🎁</button>
+        <div id="feedback"></div>
+    </div>
+
+    <h3 id="collection-title">האוסף שלי:</h3>
+    <div class="inventory" id="inventory"></div>
+
+    <script>
+        const brawlers = [
+            {name: "Shelly", icon: "🔫"}, {name: "Colt", icon: "🤠"}, 
+            {name: "El Primo", icon: "💪"}, {name: "Poco", icon: "🎸"}, 
+            {name: "Spike", icon: "🌵"}, {name: "Crow", icon: "🐦"},
+            {name: "Leon", icon: "🦎"}, {name: "Mortis", icon: "🦇"}
+        ];
+
+        const demonHunters = [
+            {name: "Jin", icon: "🎤"}, {name: "Sora", icon: "⚔️"}, 
+            {name: "Kai", icon: "🔮"}, {name: "Luna", icon: "🌙"}, 
+            {name: "Kenji", icon: "🦊"}, {name: "Yuki", icon: "❄️"},
+            {name: "Ren", icon: "🔥"}, {name: "Aya", icon: "💎"}
+        ];
+
+        let currentNum1, currentNum2;
+        let currentMode = 'multiply';
+        let currentTheme = 'brawlers';
+        let correctAnswer;
+        let streakCounter = 0; // Counter for correct answer streak
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.getElementById('btn-brawlers').classList.toggle('active', theme === 'brawlers');
+            document.getElementById('btn-demons').classList.toggle('active', theme === 'demons');
+            
+            // Clear inventory and reset streak
+            document.getElementById('inventory').innerHTML = '';
+            streakCounter = 0;
+            updateStreakDisplay();
+
+            if (theme === 'brawlers') {
+                document.body.classList.remove('theme-demons');
+                document.getElementById('main-title').innerText = '🌵 BRAWL MULTIPLY 🌵';
+                document.getElementById('subtitle').innerText = 'פתור תרגילים וזכה בבראולרים נדירים!';
+                document.getElementById('collection-title').innerText = 'האוסף שלי:';
+            } else {
+                document.body.classList.add('theme-demons');
+                document.getElementById('main-title').innerText = '🎤 K-POP DEMON HUNTERS 🎤';
+                document.getElementById('subtitle').innerText = 'פתור תרגילים וגייס ציידי שדים אגדיים!';
+                document.getElementById('collection-title').innerText = 'הלהקה שלי:';
+            }
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('btn-multiply').classList.toggle('active', mode === 'multiply');
+            document.getElementById('btn-chain').classList.toggle('active', mode === 'chain');
+            streakCounter = 0; // Reset streak on mode change
+            updateStreakDisplay(); // Update the display
+            newQuestion();
+        }
+
+        function newQuestion() {
+            if (currentMode === 'multiply') {
+                currentNum1 = Math.floor(Math.random() * 5) + 1; // כיתה א' - מתחילים קל (1-5)
+                currentNum2 = Math.floor(Math.random() * 10) + 1;
+                correctAnswer = currentNum1 * currentNum2;
+                document.getElementById('question').innerText = `${currentNum1} × ${currentNum2} =`;
+            } else {
+                let num1, num2, num3, op1, op2, intermediate, finalResult;
+                do {
+                    num1 = Math.floor(Math.random() * 20) + 1;
+                    num2 = Math.floor(Math.random() * 20) + 1;
+                    num3 = Math.floor(Math.random() * 20) + 1;
+                    op1 = Math.random() > 0.5 ? '+' : '-';
+                    op2 = Math.random() > 0.5 ? '+' : '-';
+                    
+                    intermediate = op1 === '+' ? num1 + num2 : num1 - num2;
+                    finalResult = op2 === '+' ? intermediate + num3 : intermediate - num3;
+                    
+                } while (
+                    intermediate < 0 || intermediate > 25 || // Ensure intermediate result is non-negative and within range
+                    finalResult < 0 || finalResult > 25
+                );
+                
+                correctAnswer = finalResult;
+                document.getElementById('question').innerText = `${num1} ${op1} ${num2} ${op2} ${num3} =`;
+            }
+            document.getElementById('answer').value = '';
+            document.getElementById('feedback').innerText = '';
+        }
+
+        function checkAnswer() {
+            const userAns = parseInt(document.getElementById('answer').value);
+            const feedback = document.getElementById('feedback');
+
+            if (userAns === correctAnswer) {
+                streakCounter++; // Increment the streak counter
+                updateStreakDisplay();
+
+                const rewards = currentTheme === 'brawlers' ? brawlers : demonHunters;
+                const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
+                
+                const winMessage = currentTheme === 'brawlers' 
+                    ? `זכית ב-${randomReward.name} ${randomReward.icon}` 
+                    : `גייסת את ${randomReward.name} ${randomReward.icon} ללהקה!`;
+
+                feedback.innerHTML = `<span style="color:green">נכון מאוד! ${winMessage}</span>`;
+                addToInventory(randomReward);
+                if (streakCounter > 0 && streakCounter % 3 === 0) {
+                    fireConfetti(); // Trigger confetti on a streak of 3!
+                }
+                setTimeout(newQuestion, 2000);
+            } else {
+                // למידה מטעות
+                streakCounter = 0; // Reset streak on wrong answer
+                updateStreakDisplay();
+                if (currentMode === 'multiply') {
+                    feedback.innerHTML = `<span style="color:red">כמעט! רמז: נסה לחשב ${currentNum2} ועוד ${currentNum2} (ככה ${currentNum1} פעמים)</span>`;
+                } else {
+                    feedback.innerHTML = `<span style="color:red">כמעט! רמז: חשב קודם את שני המספרים הראשונים, ואז את השלישי.</span>`;
+                }
+            }
+        }
+
+        function updateStreakDisplay() {
+            const streakEl = document.getElementById('streak-counter');
+            streakEl.innerText = streakCounter;
+            const container = document.getElementById('streak-container');
+            if (streakCounter > 0) {
+                container.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    container.style.transform = 'scale(1)';
+                }, 200);
+            }
+        }
+
+        function addToInventory(brawler) {
+            const inv = document.getElementById('inventory');
+            const item = document.createElement('div');
+            item.className = 'item';
+            item.innerHTML = `${brawler.icon}<br>${brawler.name}`;
+            inv.appendChild(item);
+        }
+
+        // Confetti function (adapted from the bowling game)
+        function fireConfetti() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+            for (let i = 0; i < 30; i++) { // Generate 30 confetti pieces
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                // Random starting position across the top of the screen
+                confetti.style.left = Math.random() * window.innerWidth + 'px';
+                confetti.style.top = '-10px'; // Start just above the viewport
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                // Random animation duration for varied fall speeds
+                confetti.style.animationDuration = (Math.random() * 2 + 1) + 's'; // 1 to 3 seconds
+                document.body.appendChild(confetti);
+                
+                // Remove confetti after its animation finishes to clean up the DOM
+                setTimeout(() => confetti.remove(), parseFloat(confetti.style.animationDuration) * 1000);
+            }
+        }
+        newQuestion();
+    </script>
+</body>
+</html>
