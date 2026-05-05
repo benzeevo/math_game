@@ -11,6 +11,10 @@
         input { width: 60px; padding: 10px; font-size: 20px; border-radius: 10px; border: none; text-align: center; }
         button { background: #ff4b2b; color: white; border: none; padding: 10px 20px; font-size: 18px; border-radius: 10px; cursor: pointer; margin-top: 10px; }
         .mode-btn { margin: 0 5px; opacity: 0.6; transition: 0.3s; }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
         .mode-btn.active { opacity: 1; transform: scale(1.1); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         #feedback { margin-top: 15px; font-weight: bold; min-height: 50px; }
         #streak-container {
@@ -74,7 +78,7 @@
         <h2 id="question" dir="ltr">טוען תרגיל...</h2>
         <input type="number" id="answer" placeholder="?" onkeypress="if(event.key==='Enter') checkAnswer()">
         <br>
-        <button onclick="checkAnswer()">פתח תיבה! 🎁</button>
+        <button id="submit-btn" onclick="checkAnswer()">פתח תיבה! 🎁</button>
         <div id="feedback"></div>
     </div>
 
@@ -162,6 +166,11 @@
             }
             document.getElementById('answer').value = '';
             document.getElementById('feedback').innerText = '';
+
+            // Re-enable controls for the new question
+            document.getElementById('answer').disabled = false;
+            document.getElementById('submit-btn').disabled = false;
+            document.getElementById('answer').focus(); // Focus input for better UX
         }
 
         function checkAnswer() {
@@ -169,6 +178,10 @@
             const feedback = document.getElementById('feedback');
 
             if (userAns === correctAnswer) {
+                // Disable controls to prevent re-submission during timeout
+                document.getElementById('answer').disabled = true;
+                document.getElementById('submit-btn').disabled = true;
+
                 streakCounter++; // Increment the streak counter
                 updateStreakDisplay();
 
