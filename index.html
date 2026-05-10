@@ -209,6 +209,15 @@
                 </select>
             </div>
             
+            <div class="setting-group">
+                <label for="difficulty-select">רמת קושי:</label>
+                <select id="difficulty-select">
+                    <option value="easy">קל</option>
+                    <option value="medium">בינוני</option>
+                    <option value="hard">קשה</option>
+                </select>
+            </div>
+            
             <button id="modal-reset-btn" onclick="resetCollection()">איפוס אוסף נוכחי 🔄</button>
             
             <button id="modal-ok-btn">אישור</button>
@@ -240,9 +249,34 @@
             { id: 'ultimate_cup', name: 'הגביע האולטימטיבי', icon: '🌌', price: 1000 }
         ];
 
+        const difficultySettings = {
+            easy: {
+                multiplyMax1: 5,
+                multiplyMax2: 10,
+                chainLength: 3,
+                chainMaxNum: 20,
+                chainMaxResult: 25
+            },
+            medium: {
+                multiplyMax1: 10,
+                multiplyMax2: 10,
+                chainLength: 3,
+                chainMaxNum: 89,
+                chainMaxResult: 100
+            },
+            hard: {
+                multiplyMax1: 12,
+                multiplyMax2: 12,
+                chainLength: 4,
+                chainMaxNum: 89,
+                chainMaxResult: 100
+            }
+        };
+
         let currentNum1, currentNum2;
         let currentMode = 'multiply';
         let currentTheme = 'brawlers';
+        let currentDifficulty = 'easy';
         let correctAnswer;
         let streakCounter = 0; // Counter for correct answer streak
         let purchasedTrophies = [];
@@ -256,6 +290,7 @@
         const storeCloseBtn = document.getElementById('store-close-btn');
         const themeSelect = document.getElementById('theme-select');
         const modeSelect = document.getElementById('mode-select');
+        const difficultySelect = document.getElementById('difficulty-select');
         const modalOkBtn = document.getElementById('modal-ok-btn');
 
         // --- Data Persistence ---
@@ -266,6 +301,9 @@
                 const data = JSON.parse(saved);
                 inventories = data.inventories || { brawlers: [], demons: [] };
                 purchasedTrophies = data.purchasedTrophies || [];
+                currentTheme = data.currentTheme || 'brawlers';
+                currentMode = data.currentMode || 'multiply';
+                currentDifficulty = data.currentDifficulty || 'easy';
                 // Ensure both keys exist to prevent errors if loading old data
                 if (!inventories.brawlers) inventories.brawlers = [];
                 if (!inventories.demons) inventories.demons = [];
@@ -275,7 +313,10 @@
         function saveProgress() {
             const progress = {
                 inventories: inventories,
-                purchasedTrophies: purchasedTrophies
+                purchasedTrophies: purchasedTrophies,
+                currentTheme: currentTheme,
+                currentMode: currentMode,
+                currentDifficulty: currentDifficulty
             };
             localStorage.setItem('mathGameProgress', JSON.stringify(progress));
         }
@@ -327,6 +368,7 @@
             // Sync selects with current state
             themeSelect.value = currentTheme;
             modeSelect.value = currentMode;
+            difficultySelect.value = currentDifficulty;
             settingsModal.style.display = 'flex';
         }
 
@@ -387,15 +429,7 @@
             }
         }
 
-        function applyAndCloseSettings() {
-            const newTheme = themeSelect.value;
-            const newMode = modeSelect.value;
-
-            // Update global state
-            currentTheme = newTheme;
-            currentMode = newMode;
-
-            // Update UI based on new state
+        function applyCurrentSettingsToUI() {
             if (currentTheme === 'brawlers') {
                 document.body.classList.remove('theme-demons');
                 document.getElementById('main-title').innerText = '🌵 BRAWL MULTIPLY 🌵';
@@ -410,40 +444,60 @@
             displayCurrentInventory();
             displayPurchasedTrophies();
             updateCharacterCountDisplay();
-
-            // Reset streak and get new question
-            streakCounter = 0;
-            updateStreakDisplay();
-            newQuestion();
-
-            settingsModal.style.display = 'none';
         }
 
         function newQuestion() {
+            const settings = difficultySettings[currentDifficulty];
+
             if (currentMode === 'multiply') {
-                currentNum1 = Math.floor(Math.random() * 5) + 1; // כיתה א' - מתחילים קל (1-5)
-                currentNum2 = Math.floor(Math.random() * 10) + 1;
+                currentNum1 = Math.floor(Math.random() * settings.multiplyMax1) + 1;
+                currentNum2 = Math.floor(Math.random() * settings.multiplyMax2) + 1;
                 correctAnswer = currentNum1 * currentNum2;
                 document.getElementById('question').innerText = `${currentNum1} × ${currentNum2} =`;
-            } else {
-                let num1, num2, num3, op1, op2, intermediate, finalResult;
-                do {
-                    num1 = Math.floor(Math.random() * 20) + 1;
-                    num2 = Math.floor(Math.random() * 20) + 1;
-                    num3 = Math.floor(Math.random() * 20) + 1;
-                    op1 = Math.random() > 0.5 ? '+' : '-';
-                    op2 = Math.random() > 0.5 ? '+' : '-';
+            } else { // chain mode
+                if (settings.chainLength === 3) {
+                    let num1, num2, num3, op1, op2, intermediate, finalResult;
+                    do {
+                        num1 = Math.floor(Math.random() * settings.chainMaxNum) + 1;
+                        num2 = Math.floor(Math.random() * settings.chainMaxNum) + 1;
+                        num3 = Math.floor(Math.random() * settings.chainMaxNum) + 1;
+                        op1 = Math.random() > 0.5 ? '+' : '-';
+                        op2 = Math.random() > 0.5 ? '+' : '-';
+                        
+                        intermediate = op1 === '+' ? num1 + num2 : num1 - num2;
+                        finalResult = op2 === '+' ? intermediate + num3 : intermediate - num3;
+                        
+                    } while (
+                        intermediate < 0 || intermediate > settings.chainMaxResult || 
+                        finalResult < 0 || finalResult > settings.chainMaxResult
+                    );
                     
-                    intermediate = op1 === '+' ? num1 + num2 : num1 - num2;
-                    finalResult = op2 === '+' ? intermediate + num3 : intermediate - num3;
+                    correctAnswer = finalResult;
+                    document.getElementById('question').innerText = `${num1} ${op1} ${num2} ${op2} ${num3} =`;
+                } else { // chainLength === 4 (hard mode)
+                    let num1, num2, num3, num4, op1, op2, op3, intermediate1, intermediate2, finalResult;
+                    do {
+                        num1 = Math.floor(Math.random() * settings.chainMaxNum) + 1;
+                        num2 = Math.floor(Math.random() * settings.chainMaxNum) + 1;
+                        num3 = Math.floor(Math.random() * settings.chainMaxNum) + 1;
+                        num4 = Math.floor(Math.random() * settings.chainMaxNum) + 1;
+                        op1 = Math.random() > 0.5 ? '+' : '-';
+                        op2 = Math.random() > 0.5 ? '+' : '-';
+                        op3 = Math.random() > 0.5 ? '+' : '-';
+                        
+                        intermediate1 = op1 === '+' ? num1 + num2 : num1 - num2;
+                        intermediate2 = op2 === '+' ? intermediate1 + num3 : intermediate1 - num3;
+                        finalResult = op3 === '+' ? intermediate2 + num4 : intermediate2 - num4;
+                        
+                    } while (
+                        intermediate1 < 0 || intermediate1 > settings.chainMaxResult || 
+                        intermediate2 < 0 || intermediate2 > settings.chainMaxResult || 
+                        finalResult < 0 || finalResult > settings.chainMaxResult
+                    );
                     
-                } while (
-                    intermediate < 0 || intermediate > 25 || // Ensure intermediate result is non-negative and within range
-                    finalResult < 0 || finalResult > 25
-                );
-                
-                correctAnswer = finalResult;
-                document.getElementById('question').innerText = `${num1} ${op1} ${num2} ${op2} ${num3} =`;
+                    correctAnswer = finalResult;
+                    document.getElementById('question').innerText = `${num1} ${op1} ${num2} ${op2} ${num3} ${op3} ${num4} =`;
+                }
             }
             document.getElementById('answer').value = '';
             document.getElementById('feedback').innerText = '';
@@ -453,6 +507,24 @@
             document.getElementById('submit-btn').disabled = false;
             document.getElementById('answer').focus(); // Focus input for better UX
         }
+
+        function applyAndCloseSettings() {
+            // Update global state from selects
+            currentTheme = themeSelect.value;
+            currentMode = modeSelect.value;
+            currentDifficulty = difficultySelect.value;
+
+            applyCurrentSettingsToUI();
+            saveProgress();
+
+            // Reset streak and get new question
+            streakCounter = 0;
+            updateStreakDisplay();
+            newQuestion();
+
+            settingsModal.style.display = 'none';
+        }
+
 
         function checkAnswer() {
             const userAns = parseInt(document.getElementById('answer').value);
@@ -486,7 +558,12 @@
                 if (currentMode === 'multiply') {
                     feedback.innerHTML = `<span style="color:red">כמעט! רמז: נסה לחשב ${currentNum2} ועוד ${currentNum2} (ככה ${currentNum1} פעמים)</span>`;
                 } else {
-                    feedback.innerHTML = `<span style="color:red">כמעט! רמז: חשב קודם את שני המספרים הראשונים, ואז את השלישי.</span>`;
+                    const settings = difficultySettings[currentDifficulty];
+                    if (settings.chainLength === 4) {
+                        feedback.innerHTML = `<span style="color:red">כמעט! רמז: חשב את התרגיל צעד אחר צעד.</span>`;
+                    } else {
+                        feedback.innerHTML = `<span style="color:red">כמעט! רמז: חשב קודם את שני המספרים הראשונים, ואז את השלישי.</span>`;
+                    }
                 }
             }
         }
@@ -539,14 +616,7 @@
         // Initial load
         function init() {
             loadProgress();
-            // Set default theme visuals on first load
-            document.body.classList.remove('theme-demons');
-            document.getElementById('main-title').innerText = '🌵 BRAWL MULTIPLY 🌵';
-            document.getElementById('subtitle').innerText = 'פתור תרגילים וזכה בבראולרים נדירים!';
-            document.getElementById('collection-title').innerText = 'האוסף שלי:';
-            displayCurrentInventory();
-            displayPurchasedTrophies();
-            updateCharacterCountDisplay();
+            applyCurrentSettingsToUI();
             newQuestion();
         }
 
